@@ -1,0 +1,60 @@
+---
+# This example config.yaml file configures DataRobot on a single-node PoC system
+# suitable for light use. It is meant as a starting point for a simple configuration,
+# not a full example of all available options.
+#
+# For a complete example, see multi-node.linux.yaml.
+
+os_configuration:
+  # DataRobot service user and keys
+  user: druser
+  group: drgroup
+  private_ssh_key_path: /home/druser/.ssh/id_rsa
+
+  # Admin account user and keys (Optional)
+  admin_user: dradmin
+  admin_private_ssh_key_path: /home/dradmin/.ssh/id_rsa
+
+# Service layout
+# List of dictionaries with several keys:
+#   services: list of services to run
+#   hosts: list of hosts to run these services on.
+#          do not list one host in multiple dictionaries
+#   app_configuration: override global app_configuration for these hosts
+servers:
+# Web server
+- services:
+  - nginx
+  - app
+  - appupload
+  - availabilitymonitor
+  - internalapi
+  - jobretryservice
+  - publicapi
+  - predictionapi
+  - pngexport
+  - datasetsserviceapi
+  - provisioner
+  - resourceproxy
+  - queueproxy
+  - mmqueue
+  - edabroker
+  - idebroker
+  - ideworker
+  - securebroker
+  - edaworker
+  - secureworker
+  - datasetsserviceworker0
+  - datasetsservicequickworker0
+  - datasetsserviceworker1
+  - datasetsservicequickworker1
+  - mongo
+  - redis
+  - gluster
+  - rsyslog
+  - predictionoptimizationapi
+  - predictionoptimizationui
+  - logstash
+  - diagnostics
+  hosts:
+  - 192.168.1.1
