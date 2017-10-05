@@ -13,7 +13,7 @@
 
         input[type="text"] { font-family: Arial, sans-serif; }
         input[type="email"] { width:159px; }
-
+        input[type="port"] { width:50px; }
         span { font-size: .8em; clear:both; }
         
         .panel { border: 1px solid black; width: 99%; float: left; margin: 5px; padding: 5px; }        
@@ -44,9 +44,6 @@
 
         #nodetype { width: 99%; min-height: 30px; margin: 5px; padding: 5px 0 5px 5px; }
         #node1, #node2, #node3, #node4 { border: 1px solid #000; background-color: #E1E9F0; width: 24%; height:300px; min-height: 20px; list-style-type: none; margin: 0; padding: 5px 0 0 0; float: left; margin-right: 10px; }
-
-        
-
     </style>
 
     <script type="text/javascript" src="js/jquery-3.2.1.min.js"></script>
@@ -56,17 +53,24 @@
 
     <script type="text/javascript">
     // Starting configuration type, changes based on blutton click
-    var configtype="singlenode";
+    var configtype="";
 
     // Services list based on configuration type
     var singleconfig = [ "nginx", "app", "appupload", "availabilitymonitor", "internalapi", "jobretryservice", "publicapi", "sentinel", "pngexport", "datasetsserviceapi", "provisioner", "resourceproxy", "queueproxy", "mmqueue", "edabroker", "idebroker", "ideworker", "securebroker", "edaworker", "secureworker", "datasetsserviceworker0", "datasetsservicequickworker0", "datasetsserviceworker1", "datasetsservicequickworker1", "mongo", "redis", "gluster", "rsyslog", "predictionoptimizationapi", "predictionoptimizationui", "logstash", "diagnostics" ];
-    var appnode = [ "nginx", "app", "appupload", "availabilitymonitor", "internalapi", "jobretryservice", "publicapi", "predictionapi", "pngexport", "datasetsserviceapi", "provisioner", "resourceproxy", "queueproxy", "mmqueue", "edabroker", "idebroker", "ideworker", "securebroker", "edaworker", "securebroker", "rsyslog", "predictionoptimizationapi", "predictionoptimizationui", "logstash", "diagnostics" ];
-    var datanode = [ "mongo", "redis", "gluster" ];
-    var datanodeslave = [ "mongo", "redis", "sentinel", "gluster" ];
-    var datanodemaster = [ "mongo", "sentinel", "gluster" ];
-    var modeleda = [ "secureworker", "edaworker", "datasetsserviceworker0", "datasetsservicequickworker0", "datasetsserviceworker1", "datasetsservicequickworker1" ];
-    var modelonly = [ "secureworker" ];
-    var prediction = [ "dedicatedpredictionapi", "dedicatedpredictionnginx" ];
+    
+    var services = new Object;
+    services["app"]         = [ "nginx", "app", "appupload", "availabilitymonitor", "internalapi", "jobretryservice", "publicapi", "predictionapi", "pngexport", "datasetsserviceapi", "provisioner", "resourceproxy", "queueproxy", "mmqueue", "edabroker", "idebroker", "ideworker", "securebroker", "edaworker", "securebroker", "rsyslog", "predictionoptimizationapi", "predictionoptimizationui", "logstash", "diagnostics" ];
+    services["data"]        = [ "mongo", "redis", "gluster" ];
+    services["model"]       = [ "secureworker", "edaworker", "datasetsserviceworker0", "datasetsservicequickworker0", "datasetsserviceworker1", "datasetsservicequickworker1" ];
+    services["prediction"]  = [ "dedicatedpredictionapi", "dedicatedpredictionnginx" ];
+
+    services["dataslave"] = [ "mongo", "redis", "sentinel", "gluster" ];
+    services["datanodemaster"] = [ "mongo", "sentinel", "gluster" ];
+    services["modelonly"] = [ "secureworker" ];
+
+    // List the types of nodes
+    var types = ["app","data","prediction","model"];
+
 
     function flipit(where) {
         $("#" + where).toggle();
@@ -83,23 +87,7 @@
         console.log("Flipped:> " + where + " inputs/selects to disabled:" + state)
     }
 
-    
-
     $(document).ready(function() {
-
-        // Enable tooltips
-        //$( function() {
-        //    $( document ).tooltip({
-        //        show: null,
-        //        position: {
-        //            my: "left top",
-        //            at: "left bottom"
-        //        },
-        //        open: function( event, ui ) {
-        //            ui.tooltip.animate({ top: ui.tooltip.position().top + 10 }, "fast" );
-        //        }
-        //    });
-        //});
 
         // Item click actions
         // Based on the button click, determine which panel to show
@@ -132,29 +120,36 @@
         $("#enablesmpt").click(function () { flipitselect("smtpconfig"); });
         $("#dedicatedpredictionserver").click(function () { flipit("dpsconfig"); });
         $("#enableha").click(function () { flipit("haconfig"); });
-
-        /* button */
-        $("#advanced").click(function(e){
-            $("#advancedoptions").toggle();
-        });
+        $("#advanced").click(function(e){ $("#advancedoptions").toggle() });
 
         // Generates the JSON array used to create the yaml file
         // All validation should have been done beofre this fires
         $("#create").click(function(e){
-            //e.preventDefault();
+            e.preventDefault();
+
             var formData = $("#config").serializeJSON();
 
-            if (configtype == "singlenode" || configtype == "") {
+            if (configtype == "singlenode") {
                 $.extend(formData.servers[0].services, singleconfig);
+            }
+            else if (configtype == "multinode") {
+
+                for( var type in types) {
+                    var key = types[type];
+                    var services
+                    console.log( "type " + type + ":>" + key + "\ntypeof:>" + typeof( formData.servers[key] ) + "\nServices:" + services[ key ] );
+                    $.extend(formData.servers[key].services, services[ key ]);
+                }
             }
 
             var yaml = jsyaml.load( JSON.stringify(formData), { 'schema': 'FAILSAFE_SCHEMA' } );
-            //var yaml = jsyaml.load( JSON.stringify(formData));
+           //var yaml = jsyaml.load( JSON.stringify(formData));
 
             //console.log(yaml);
             $("#generatedconfig").html( "---\n" + jsyaml.safeDump( yaml ) );
             $("#generatedconfig").show()
         });
+
 
         // Drag and Drop functionality
         // Add Sortability
@@ -180,46 +175,63 @@
                 $( ui.draggable ).find(".app_values").hide();
                 $( ui.draggable ).removeClass("dropped_config");
             }
-        })
+        });
 
         // Let the nodes be droppable, accepting the nodetype items
         $( "#node1, #node2, #node3, #node4" ).droppable({
             drop: function( event, ui) {
                 $( ui.draggable ).find(".app_values").show();
                 $(ui.draggable).addClass("dropped_config");
+
+                //console.log( $( this ).find(".nodeconfig").length )
+
+                if ($( this ).find(".nodeconfig").length > 1) {
+                    console.log("Deactivating app host ip")
+                    
+                }
+
+                //console.log(this)
             }
         });
 
-    });
+        // Adding the onclick for new field functionality
+        var maxnodes = 9;
+        var mcount = 1;
+        var pcount = 1;
 
-    $(document).ready(function() {
-        var max_fields      = 10; //maximum input boxes allowed
-        var wrapper         = $(".input_fields_wrap"); //Fields wrapper
-        var add_button      = $(".add_field_button"); //Add button ID
-    
-        var x = 1; //initlal text box count
-        $(add_button).click(function(e){ //on add input button click
+        $("#addmodel, #addprediction").click(function(e){
             e.preventDefault();
-            if(x < max_fields){ //max input box allowed
-                x++; //text box increment
-                $(wrapper).append('<div><input type="text" name="mytext[]"/><a href="#" class="remove_field">Remove</a></div>'); //add input box
+            nodetype = $(this).attr('data-target');
+            var count = ( nodetype == "model" ) ? mcount : pcount;
+            if( count < maxnodes){ //max input box allowed
+                count++; //text box increment
+                $("#" + nodetype + "wrap").append("<div><input type=\"text\" name=\"servers[model][hosts][]\" class=\"defaultinput\" required placeholder=\"IP Address\" pattern=\"^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$\" /><button type='button' class='remove" + nodetype + "'>Remove</button></div>");
             }
+            if ( nodetype == "model" ) { mcount = count; } else { pcount = count; }
         });
-    
-        $(wrapper).on("click",".remove_field", function(e){ //user click on remove text
-            e.preventDefault(); $(this).parent('div').remove(); x--;
+
+        $("#modelwrap").on("click",".removemodel", function(e){ //user click on remove text
+            e.preventDefault();
+            $(this).parent('div').remove(); 
+            mcount--;
         })
+
+        $("#predictionwrap").on("click",".removeprediction", function(e){ //user click on remove text
+            e.preventDefault();
+            $(this).parent('div').remove(); 
+            pcount--;
+        })        
     });
     </script>
 
 </head>
 <body>
+
     <fieldset>
         <legend><h1>DataRobot Config Builder v 0.1</h1> </legend>
         <p>Use the configuration builder to help you create working DataRobot configuration files to power the installation process!</p>
         
         <form id="config" method="get">
-<!--            <input type="hidden" id="services" name="servers[][services][]" value="" /> -->
             <div class="panel">
                 <div class="question">
                     <label for="username">User name:</label>
@@ -262,7 +274,6 @@
             </div>
 
             <div id="advancedoptions" class="panel">
-                
 
                 <div class="panel question bundle">
                     ### Miscellaneous
@@ -439,17 +450,10 @@ The following keys can be put in the `drenv_override` sub-dictionary of any `app
 This section is not likely to be an exhaustive list of all configuration options available. However, the most relevant will be recorded here.
 
 -->
-             
-<!--                
-                <div>
-                    <div id="draggable1" class="draggable" draggable="true" ondragstart="drag(event)"></div>
-                    <div id="draggable2" class="draggable" draggable="true" ondragstart="drag(event)"></div>
-                    <div id="draggable3" class="draggable" draggable="true" ondragstart="drag(event)"></div>
-                </div>
--->
             </div>
 
             <div id="singlenode_panel" class="panel hidden">
+                <input type="hidden" id="services" name="servers[][services][]" value="" />
                 <div class="question">
                     <label for="hostip">Host IP:</label>
                     <input type="text" id="hostip" name="servers[][hosts][]" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"/>
@@ -459,7 +463,7 @@ This section is not likely to be an exhaustive list of all configuration options
             <div id="multinode_panel" class="panel hidden">
                 <div class="panel question bundle">
                     <label for="webserverip">Webserver IP:</label>
-                    <input type="text" id="webserverip" name="os_configuration[webserver_hostname]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^$"/>
+                    <input type="text" id="webserverip" name="os_configuration[webserver_hostname]" value="1.1.1.1" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$|^$"/>
                     <label for="webserverssl">Enable Webserver SSL?</label>
                     <input type="checkbox" id="webserverssl" name="os_configuration[ssl][enabled]" value="true" />
                     <div id="webkeyfiles" class="hidden">
@@ -506,120 +510,128 @@ This section is not likely to be an exhaustive list of all configuration options
                         <input type="text" id="remotelogserver" name="os_configuration[logs][server]" class="defaultinput" required placeholder="logstash.example.com" />
                         <br />
                         <label for="remotelogport">Port:</label>
-                        <input type="number" id="remotelogport" name="os_configuration[logs][port]" required placeholder="5544" />
+                        <input type="port" id="remotelogport" name="os_configuration[logs][port]" required placeholder="5544" pattern="\d{3,6}" />
                     </div>
                 </div>
 
                 <div id="nodetype" class="connectedSortable panel">
-                    <div id="app_config" class="nodeconfig">Application Server
+                    <div id="app_config" class="nodeconfig">Application Node
                         <div class="app_values hidden">
+                            <input type="hidden" id="services" name="servers[app][services][]" value="" />
+                            
                             <label for="apphostip">Host IP:</label>
-                            <input type="text" id="apphostip" name="servers['app'][hosts][]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"/>
+                            <input type="text" id="apphostip" name="servers[app][hosts][]" value="1.1.1.1" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"/>
                             <br />                        
                             <label for="enablesmpt">Enable SMTP?</label>
                             <input type="checkbox" id="enablesmpt"/>
 
                             <div id="smtpconfig" class="hidden">
                                 <label for="smtpaddress">SMTP Host:</label>
-                                <input type="text" id="smtpaddress" name="servers['app'][app_configuration][drenv_override][SMTP_ADDRESS]" class="defaultinput" required placeholder="smtp.gmail.com" />
+                                <input type="text" id="smtpaddress" name="servers[app][app_configuration][drenv_override][SMTP_ADDRESS]" class="defaultinput" required placeholder="smtp.gmail.com" />
                                 <br />
                                 <label for="smtpport">SMTP Port:</label>
-                                <input type="number" id="smtpport" name="servers['app'][app_configuration][drenv_override][SMTP_PORT]" required placeholder="587" />
+                                <input type="port" id="smtpport" name="servers[app][app_configuration][drenv_override][SMTP_PORT]" required placeholder="587" pattern="\d{3,6}" />
                                 <br />
                                 <label for="smtpmode">SMTP Mode:</label>
-                                <select id="smtpmode" name="servers['app'][app_configuration][drenv_override][SMTP_MODE]" required>
+                                <select id="smtpmode" name="servers[app][app_configuration][drenv_override][SMTP_MODE]" required>
                                     <option value="SMTP_STARTTLS">Start TLS (default)</option>
                                     <option value="SMTP">Standard SMTP</option>
                                     <option value="SMTP_SSL">SSL</option>
                                 </select>
                                 <br />                              
                                 <label for="smtpuser">Username:</label>
-                                <input type="email" id="smtpuser" name="servers['app'][app_configuration][drenv_override][SMTP_USER]" required placeholder="snmp_user@example.com" />
+                                <input type="email" id="smtpuser" name="servers[app][app_configuration][drenv_override][SMTP_USER]" required placeholder="snmp_user@example.com" />
                                 <label for="smtppassword">Password:</label>
-                                <input type="password" id="smtppassword" name="servers['app'][app_configuration][drenv_override][SMTP_PASSWORD]" required />
+                                <input type="password" id="smtppassword" name="servers[app][app_configuration][drenv_override][SMTP_PASSWORD]" required />
                                 <br />
                                 <label for="smtphtmlemail">Send HTML email?</label>
-                                <input type="checkbox" id="smtphtmlemail" name="servers['app'][app_configuration][drenv_override][HTML_EMAILS_ENABLED]" value="true" checked />
+                                <input type="checkbox" id="smtphtmlemail" name="servers[app][app_configuration][drenv_override][HTML_EMAILS_ENABLED]" value="true" checked />
                                 <br />
                                 <label for="smtpmode">Enable TLS Mode?</label>
-                                <input type="checkbox" id="smtpmode" name="servers['app'][app_configuration][drenv_override][SMTP_MODE]" value="SMTP_STARTTLS" />
+                                <input type="checkbox" id="smtpmode" name="servers[app][app_configuration][drenv_override][SMTP_MODE]" value="SMTP_STARTTLS" />
                                 <br />
                                 <label for="defaultsender">Default Sender:</label>
-                                <input type="email" id="defaultsender" name="servers['app'][app_configuration][drenv_override][DEFAULT_SENDER]" placeholder="support@example.com" />
+                                <input type="email" id="defaultsender" name="servers[app][app_configuration][drenv_override][DEFAULT_SENDER]" placeholder="support@example.com" />
                                 <label for="defaultapprover">Default Approver:</label>
-                                <input type="email" id="defaultapprover" name="servers['app'][app_configuration][drenv_override][DEFAULT_APPROVER]" placeholder="support@example.com" />
+                                <input type="email" id="defaultapprover" name="servers[app][app_configuration][drenv_override][DEFAULT_APPROVER]" placeholder="support@example.com" />
                                 <label for="defaultcfdsreceiver">New Users:</label>
-                                <input type="email" id="defaultcfdsreceiver" name="servers['app'][app_configuration][drenv_override][DEFAULT_CFDS_RECEIVER]" placeholder="cfds@example.com" />
+                                <input type="email" id="defaultcfdsreceiver" name="servers[app][app_configuration][drenv_override][DEFAULT_CFDS_RECEIVER]" placeholder="cfds@example.com" />
                                 <label for="defaultsupport">Default Support:</label>
-                                <input type="email" id="defaultcfdsreceiver" name="servers['app'][app_configuration][drenv_override][DEFAULT_SUPPORT]" placeholder="support@example.com" />
+                                <input type="email" id="defaultcfdsreceiver" name="servers[app][app_configuration][drenv_override][DEFAULT_SUPPORT]" placeholder="support@example.com" />
                                 <label for="contractsemail">Contracts Email:</label>
-                                <input type="email" id="contractsemail" name="servers['app'][app_configuration][drenv_override][CONTRACTS_EMAIL]" placeholder="cfds@example.com" />
+                                <input type="email" id="contractsemail" name="servers[app][app_configuration][drenv_override][CONTRACTS_EMAIL]" placeholder="cfds@example.com" />
                             </div>
                         </div>
                     </div>
 
-                    <div id="data_config" class="nodeconfig">Data Storage
+                    <div id="data_config" class="nodeconfig">Data Node
 
                         <div class="app_values hidden">
+                            <input type="hidden" id="services" name="servers[data][services][]" value="" />
                             <label for="datahostip">Host IP:</label>
-                            <input type="text" id="datahostip" name="servers['data'][hosts][]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"/>
+                            <input type="text" id="datahostip" name="servers[data][hosts][]" value="1.1.1.1" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"/>
                             <br />
                             <label for="enableha">Enable HA?</label>
                             <input type="checkbox" id="enableha"/>
         
                             <div id="haconfig" class="hidden">
                                 <label for="haaddress1">HA Host 1:</label>
-                                <input type="text" id="haaddress1" name="servers['data'][hosts][]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" />
+                                <input type="text" id="haaddress1" name="servers[data][hosts][]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" />
                                 <br />
                                 <label for="haaddress1">HA Host 2:</label>
-                                <input type="text" id="haaddress1" name="servers['data'][hosts][]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" />
+                                <input type="text" id="haaddress1" name="servers[data][hosts][]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" />
                                 <br />
                             </div>
                         </div>
                     </div>
 
-                    <div id="modeling_config" class="nodeconfig">Modeling Server
+                    <div id="modeling_config" class="nodeconfig">Modeling Node
                         <div class="app_values hidden">
-                            <div class="input_fields_wrap">
-                                <button class="add_field_button">Add More Hosts</button>
-                                <div><input type="text" name="servers['model'][hosts][]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" /></div>
+                            <input type="hidden" id="services" name="servers[model][services][]" value="" />
+                            <div id="modelwrap" class="input_fields_wrap">
+                                <button type="button" id="addmodel" class="add_field_button" data-target="model" >Add Modeler IP</button>
+                                <div><input type="text" name="servers[model][hosts][]" value="1.1.1.2" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" /></div>
                             </div>
                         </div>
                     </div>
 
-                    <div id="prediction_config" class="nodeconfig">Prediction
+                    <div id="prediction_config" class="nodeconfig">Prediction Node
                         <div class="app_values hidden">
-                            <div class="input_fields_wrap">
-                                <button class="add_field_button">Add More Hosts</button>
-                                <div><input type="text" name="servers['prediction'][hosts][]" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" /></div>
+                            <input type="hidden" id="services" name="servers[prediction][services][]" value="" />
+
+                            <div id="predictionwrap" class="input_fields_wrap">
+                                <button type="button" id="addprediction" class="add_field_button" data-target="prediction" >Add Prediction IP</button>
+                                <div><input type="text" name="servers[prediction][hosts][]" value="1.1.1.1" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$" /></div>
                             </div>
                             <label for="dedicatedpredictionserver">Dedicated Prediction Server?</label>
-                            <input type="checkbox" id="dedicatedpredictionserver" name="servers['prediction'][app_configuration][drenv_override][dedicated_prediction_server]" value="true"/>
+                            <input type="checkbox" id="dedicatedpredictionserver" name="servers[prediction][app_configuration][drenv_override][dedicated_prediction_server]" value="true"/>
                             <div id="dpsconfig" class="hidden">
                                 <label for="workermodelcache">Worker Cache:</label>
-                                <input type="text" id="workermodelcache" name="servers['prediction'][app_configuration][drenv_override][WORKER_MODEL_CACHE]" class="defaultinput" required placeholder="smtp.gmail.com" />
-
-
-                                <p>
-                                    <label for="amount">Maximum price:</label>
-                                    <input type="text" id="amount" readonly style="border:0; color:#f6931f; font-weight:bold;">
-                                </p>   
-                                <div id="slider-range-min"></div>
-
+                                <input type="text" id="workermodelcache" name="servers[prediction][app_configuration][drenv_override][WORKER_MODEL_CACHE]" class="defaultinput" required placeholder="smtp.gmail.com" />
 
                                 <label for="modelcachemode">Cache Mode:</label>
-                                LRU <input type="radio" id="modelcachemode" name="servers['prediction'][app_configuration][drenv_override][MODEL_CACHE_MODE]" value="LRU" checked />
-                                <input type="radio" id="modelcachemode" name="servers['prediction'][app_configuration][drenv_override][MODEL_CACHE_MODE]" value="latest" />Latest
+                                LRU <input type="radio" id="modelcachemode" name="servers[prediction][app_configuration][drenv_override][MODEL_CACHE_MODE]" value="LRU" checked />
+                                <input type="radio" id="modelcachemode" name="servers[prediction][app_configuration][drenv_override][MODEL_CACHE_MODE]" value="latest" />Latest
                                 <br />
                                 <label for="cachedbresult">Cache Result:</label>
-                                <input type="checkbox" id="cachedbresult" name="servers['prediction'][app_configuration][drenv_override][CACHE_DB_RESULT]" value="true"/>
+                                <input type="checkbox" id="cachedbresult" name="servers[prediction][app_configuration][drenv_override][CACHE_DB_RESULT]" value="true"/>
                              </div>
                         </div>
                     </div>
                 </div>
 
                 <div id="serverlist" class="panel">
-                    <div id="node1" class="connectedSortable"></div>
+                    <div id="node1" class="connectedSortable">
+                        
+
+                        <div class="nodehost hidden">
+                            <label for="node1hostip">Host IP:</label>
+                            <input type="text" id="node1hostip" name="servers[][hosts][]" value="1.1.1.1" class="defaultinput" required placeholder="IP Address" pattern="^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$"/>
+                        </div>
+
+                    </div>
+
+
                     <div id="node2" class="connectedSortable"></div>
                     <div id="node3" class="connectedSortable"></div>
                     <div id="node4" class="connectedSortable"></div>
